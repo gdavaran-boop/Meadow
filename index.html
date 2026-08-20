@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Meadow</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800&display=swap');
+* { box-sizing: border-box; }
+body { margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+"use strict";
+const { useState, useEffect, useRef } = React;
+// =====================================================================
+// FILL THESE IN with your Supabase project's values:
+// Project Settings -> API -> Project URL, and Project API keys -> anon public
+const SUPABASE_URL = "https://sphbpgzahvnsruclmocf.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable__bDUDYcUQJNSOT7sMa3xew_aEeFqEJz";
+// =====================================================================
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SPACE_IDS = ["all", "career", "life", "requests"];
+const COMMON_UNIVERSITIES = [
+    "University of Tehran", "Sharif University of Technology", "Amirkabir University of Technology",
+    "Iran University of Science and Technology", "Shahid Beheshti University", "K. N. Toosi University of Technology",
+    "Isfahan University of Technology", "Ferdowsi University of Mashhad", "Tarbiat Modares University",
+    "Shiraz University", "University of Tabriz", "Allameh Tabataba'i University",
+];
+const STRINGS = {
+    en: {
+        brand: "Meadow", tagline: "Connected the way roots are underground.",
+        spaceLabel: { all: "All", career: "Career", life: "Off Duty", requests: "Requests" },
+        spaceHint: {
+            career: "Share an opportunity, a referral, or a career question...",
+            life: "Whatever you want. Freedom rules here.",
+            requests: "Ask for something. Offer something.",
+        },
+        needHelp: "Need help", canHelp: "Can help", jobHunting: "Job hunting", post: "Post",
+        empty: "Nothing here yet. Be the first.", needsHelpBadge: "Needs help", offeringHelpBadge: "Offering help",
+        jobHuntingBadge: "Job hunting", markHelpful: "This helped", markedHelpful: "Marked helpful",
+        admin: "Admin", protectedMode: "Protected Mode", name: "Name", pseudonym: "Pseudonym",
+        continue: "Continue", skip: "Skip", city: "City", cityTitle: "Where are you based?",
+        citySub: "The single most useful signal for finding people near you.",
+        situationTitle: "What's your situation right now?", working: "Working", studying: "Studying",
+        transition: "In transition", employed: "Currently employed", openToWork: "Open to work",
+        enrolled: "Enrolled", seeking: "Looking for a program", backgroundTitle: "Background",
+        backgroundSub: "Optional — helps people find you through shared history.", company: "Company",
+        university: "University", oneMoreThing: "One more thing",
+        oneMoreSub: "A word, a sentence, something to remember you by. Optional.",
+        enterMeadow: "Enter Meadow", skipAndEnter: "Skip and enter", back: "Back", profile: "Profile",
+        protectedIsOn: "Protected Mode is on", helped: "Helped", askedForHelp: "Asked for help",
+        helpNote: "Asking for help counts too.", adminAccess: "Admin access", password: "Password",
+        unlock: "Unlock", overview: "Overview", members: "Members", posts: "Posts",
+        membersHeading: "Members", noMembers: "No members yet.", noBackground: "no background filled in",
+        allPosts: "All posts", noPosts: "No posts yet.", haveAccount: "Already have an account? Sign in",
+        findAccount: "Sign back in",
+        findAccountSub: "Enter the exact name or pseudonym, and the password, you signed up with.",
+        restore: "Sign in", notFound: "No match found. Check your name, pseudonym, and password.",
+        passwordHint: "At least 4 characters. Don't reuse a real password — stored in plain text for this prototype.",
+        nameOrPseudonym: "Name or pseudonym", loadError: "Couldn't connect. Check the Supabase URL and key at the top of this file.",
+    },
+    fa: {
+        brand: "چمنزار", tagline: "مثل ریشه‌ها، زیر خاک به هم وصل.",
+        spaceLabel: { all: "همه", career: "شغل", life: "دور از کار", requests: "درخواست‌ها" },
+        spaceHint: {
+            career: "یه فرصت، یه معرفی، یا یه سوال شغلی...",
+            life: "هرچی دلت خواست. اینجا آزادی حکم می‌کنه.",
+            requests: "درخواست کن. یا کمک کن.",
+        },
+        needHelp: "کمک می‌خوام", canHelp: "می‌تونم کمک کنم", jobHunting: "دنبال کارم", post: "ارسال",
+        empty: "هنوز چیزی اینجا نیست.", needsHelpBadge: "نیاز به کمک", offeringHelpBadge: "ارائه‌ی کمک",
+        jobHuntingBadge: "دنبال کار", markHelpful: "این کمک کرد", markedHelpful: "کمک‌کننده علامت خورد",
+        admin: "مدیریت", protectedMode: "حالت محافظت‌شده", name: "اسم", pseudonym: "اسم مستعار",
+        continue: "ادامه", skip: "رد کردن", city: "شهر", cityTitle: "کجا هستی؟",
+        citySub: "مفیدترین اطلاعات برای پیدا کردن آدمای نزدیکت.",
+        situationTitle: "الان تو چه وضعیتی هستی؟", working: "شاغل", studying: "دانشجو",
+        transition: "در حال تغییر", employed: "شاغل فعلی", openToWork: "دنبال کار",
+        enrolled: "مشغول تحصیل", seeking: "دنبال یه برنامه", backgroundTitle: "پیشینه",
+        backgroundSub: "اختیاری — کمک می‌کنه از طریق سابقه‌ی مشترک پیدات کنن.", company: "شرکت",
+        university: "دانشگاه", oneMoreThing: "یه چیز دیگه",
+        oneMoreSub: "یه کلمه، یه جمله، چیزی که باهاش یادت بمونه. اختیاری.",
+        enterMeadow: "ورود به چمنزار", skipAndEnter: "رد کن و وارد شو", back: "بازگشت", profile: "پروفایل",
+        protectedIsOn: "حالت محافظت‌شده فعاله", helped: "کمک کردم", askedForHelp: "کمک خواستم",
+        helpNote: "کمک خواستن هم یه ارزشه.", adminAccess: "دسترسی مدیریت", password: "رمز عبور",
+        unlock: "باز کردن", overview: "نمای کلی", members: "اعضا", posts: "پست‌ها",
+        membersHeading: "اعضا", noMembers: "هنوز عضوی نیست.", noBackground: "پیشینه‌ای وارد نشده",
+        allPosts: "همه‌ی پست‌ها", noPosts: "هنوز پستی نیست.", haveAccount: "قبلاً اکانت داشتی؟ وارد شو",
+        findAccount: "ورود دوباره",
+        findAccountSub: "اسم یا اسم مستعار و رمز عبوری که باهاش ثبت‌نام کردی رو دقیق بنویس.",
+        restore: "ورود", notFound: "چیزی پیدا نشد. اسم، اسم مستعار، و رمز عبور رو چک کن.",
+        passwordHint: "حداقل ۴ کاراکتر. از رمز واقعی‌ت استفاده نکن.",
+        nameOrPseudonym: "اسم یا اسم مستعار", loadError: "اتصال برقرار نشد. آدرس و کلید Supabase بالای فایل رو چک کن.",
+    },
+};
+function statusLabel(m, t) {
+    if (!t || !m)
+        return "";
+    if (m.status === "working") {
+        if (m.work_status === "employed")
+            return t.working + " — " + t.employed;
+        if (m.work_status === "open")
+            return t.working + " — " + t.openToWork;
+        return t.working;
+    }
+    if (m.status === "studying") {
+        if (m.study_status === "enrolled")
+            return t.studying + " — " + t.enrolled;
+        if (m.study_status === "seeking")
+            return t.studying + " — " + t.seeking;
+        return t.studying;
+    }
+    if (m.status === "transition")
+        return t.transition;
+    return "";
+}
+function RootLines({ className }) {
+    return (React.createElement("svg", { className: className, viewBox: "0 0 400 200", fill: "none", preserveAspectRatio: "none" },
+        ["M200,200 L188,168 L165,158 L150,132 L122,120 L108,88 L96,62",
+            "M200,200 L192,160 L172,145 L158,110 L140,92 L128,58",
+            "M200,200 L210,158 L228,140 L248,112 L262,84 L286,48",
+            "M200,200 L218,165 L246,150 L268,128 L296,110 L318,72",
+            "M200,200 L200,155 L202,118 L196,80 L204,40 L198,12"].map((d, i) => (React.createElement("path", { key: i, d: d, stroke: "#B8974D", strokeWidth: "1.25", strokeOpacity: 0.55, fill: "none" }))),
+        React.createElement("circle", { cx: "200", cy: "200", r: "2.5", fill: "#B8974D", opacity: "0.9" })));
+}
+function App() {
+    const [loading, setLoading] = useState(true);
+    const [connError, setConnError] = useState(false);
+    const [lang, setLang] = useState(localStorage.getItem("meadow-lang") || null);
+    const [me, setMe] = useState(null);
+    const [members, setMembers] = useState({});
+    const [posts, setPosts] = useState([]);
+    const [screen, setScreen] = useState("lang");
+    const [activeSpace, setActiveSpace] = useState("all");
+    const [composeText, setComposeText] = useState("");
+    const [composeType, setComposeType] = useState("post");
+    const [saving, setSaving] = useState(false);
+    const [adminUnlocked, setAdminUnlocked] = useState(false);
+    const [adminPasswordInput, setAdminPasswordInput] = useState("");
+    const [viewingMemberId, setViewingMemberId] = useState(null);
+    const bootstrapped = useRef(false);
+    const ADMIN_PASSWORD = "meadow-admin";
+    async function loadData() {
+        const { data: memberRows, error: mErr } = await supabase.from("members").select("*");
+        if (mErr) {
+            setConnError(true);
+            return;
+        }
+        const memberMap = {};
+        (memberRows || []).forEach((m) => (memberMap[m.id] = m));
+        setMembers(memberMap);
+        const { data: postRows, error: pErr } = await supabase.from("posts").select("*").order("created_at", { ascending: false });
+        if (pErr) {
+            setConnError(true);
+            return;
+        }
+        setPosts(postRows || []);
+    }
+    useEffect(() => {
+        if (bootstrapped.current)
+            return;
+        bootstrapped.current = true;
+        (async () => {
+            try {
+                await loadData();
+                const savedId = localStorage.getItem("meadow-my-id");
+                if (lang) {
+                    if (savedId) {
+                        const { data } = await supabase.from("members").select("*").eq("id", savedId).single();
+                        if (data) {
+                            setMe(data);
+                            setScreen("feed");
+                        }
+                        else {
+                            setScreen("onboarding");
+                        }
+                    }
+                    else {
+                        setScreen("onboarding");
+                    }
+                }
+            }
+            catch (e) {
+                setConnError(true);
+            }
+            finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+    function chooseLang(l) {
+        setLang(l);
+        localStorage.setItem("meadow-lang", l);
+        setScreen("onboarding");
+    }
+    async function completeOnboarding(profile) {
+        setSaving(true);
+        const { data, error } = await supabase.from("members").insert([{
+                name: profile.name, pseudonym: profile.pseudonym, protected: profile.protected,
+                password: profile.password, city: profile.city, status: profile.status,
+                work_status: profile.workStatus, study_status: profile.studyStatus,
+                company: profile.company, university: profile.university, life_note: profile.lifeNote,
+            }]).select().single();
+        setSaving(false);
+        if (error || !data) {
+            setConnError(true);
+            return;
+        }
+        setMe(data);
+        localStorage.setItem("meadow-my-id", data.id);
+        setMembers((prev) => ({ ...prev, [data.id]: data }));
+        setScreen("feed");
+    }
+    async function restoreAccount(q, password) {
+        const ql = q.trim().toLowerCase();
+        const { data } = await supabase.from("members").select("*");
+        const match = (data || []).find((m) => ((m.name || "").toLowerCase() === ql || (m.pseudonym || "").toLowerCase() === ql) && m.password === password.trim());
+        if (match) {
+            setMe(match);
+            localStorage.setItem("meadow-my-id", match.id);
+            setScreen("feed");
+            return true;
+        }
+        return false;
+    }
+    async function submitPost() {
+        if (!composeText.trim() || !me)
+            return;
+        const newPost = {
+            space_id: activeSpace, author_id: me.id,
+            display_name: me.protected ? me.pseudonym : me.name,
+            text: composeText.trim(), type: activeSpace === "requests" ? composeType : "post",
+            helpful_by: [],
+        };
+        const { data, error } = await supabase.from("posts").insert([newPost]).select().single();
+        if (!error && data)
+            setPosts((prev) => [data, ...prev]);
+        if (activeSpace === "requests" && (composeType === "asked" || composeType === "offered")) {
+            const field = composeType === "asked" ? "asked" : "helped";
+            const newVal = (me[field] || 0) + 1;
+            const { data: updated } = await supabase.from("members").update({ [field]: newVal }).eq("id", me.id).select().single();
+            if (updated) {
+                setMe(updated);
+                setMembers((prev) => ({ ...prev, [me.id]: updated }));
+            }
+        }
+        setComposeText("");
+    }
+    async function markHelpful(post) {
+        if (!me || post.author_id === me.id || (post.helpful_by || []).includes(me.id))
+            return;
+        const nextHelpfulBy = [...(post.helpful_by || []), me.id];
+        const { data: updatedPost } = await supabase.from("posts").update({ helpful_by: nextHelpfulBy }).eq("id", post.id).select().single();
+        if (updatedPost)
+            setPosts((prev) => prev.map((p) => (p.id === post.id ? updatedPost : p)));
+        const author = members[post.author_id];
+        if (author) {
+            const { data: updatedAuthor } = await supabase.from("members").update({ helped: (author.helped || 0) + 1 }).eq("id", post.author_id).select().single();
+            if (updatedAuthor)
+                setMembers((prev) => ({ ...prev, [post.author_id]: updatedAuthor }));
+        }
+    }
+    if (loading) {
+        return React.createElement("div", { style: styles.loadingScreen },
+            React.createElement("div", { style: styles.loadingDot }));
+    }
+    if (connError) {
+        const t = STRINGS[lang || "en"];
+        return (React.createElement("div", { style: styles.loadingScreen },
+            React.createElement("div", { style: { color: "#ECEAE4", textAlign: "center", maxWidth: 320, padding: 20, fontFamily: "'JetBrains Mono', monospace" } }, t.loadError)));
+    }
+    if (screen === "lang" || !lang) {
+        return React.createElement(LangSelect, { onChoose: chooseLang });
+    }
+    const t = STRINGS[lang];
+    const dir = lang === "fa" ? "rtl" : "ltr";
+    const fontFamily = lang === "fa" ? "'Vazirmatn', sans-serif" : "'JetBrains Mono', monospace";
+    if (screen === "onboarding") {
+        return React.createElement(Onboarding, { onDone: completeOnboarding, saving: saving, t: t, dir: dir, fontFamily: fontFamily, onRecover: () => setScreen("recover") });
+    }
+    if (screen === "recover") {
+        return React.createElement(Recover, { t: t, dir: dir, fontFamily: fontFamily, onRestore: restoreAccount, onBack: () => setScreen("onboarding") });
+    }
+    if (!me) {
+        return React.createElement("div", { style: styles.loadingScreen },
+            React.createElement("div", { style: styles.loadingDot }));
+    }
+    return (React.createElement("div", { style: { ...styles.app, fontFamily }, dir: dir },
+        React.createElement("header", { style: styles.header },
+            React.createElement("div", { style: styles.headerInner },
+                React.createElement("div", { style: styles.brand },
+                    React.createElement(RootLines, { className: "brand-roots" }),
+                    React.createElement("span", { style: styles.brandText }, t.brand)),
+                React.createElement("div", { style: styles.headerRight },
+                    React.createElement("button", { style: styles.adminLink, onClick: () => setScreen("admin") }, t.admin),
+                    React.createElement("button", { style: styles.avatarBtn, onClick: () => setScreen(screen === "profile" ? "feed" : "profile") }, (me.protected ? me.pseudonym : me.name || "?").charAt(0).toUpperCase()))),
+            screen === "feed" && (React.createElement("nav", { style: styles.nav }, SPACE_IDS.map((id) => (React.createElement("button", { key: id, onClick: () => setActiveSpace(id), style: { ...styles.navItem, ...(activeSpace === id ? styles.navItemActive : {}) } }, t.spaceLabel[id])))))),
+        screen === "admin" ? (React.createElement(Admin, { members: members, posts: posts, unlocked: adminUnlocked, passwordInput: adminPasswordInput, setPasswordInput: setAdminPasswordInput, onUnlock: () => { if (adminPasswordInput === ADMIN_PASSWORD)
+                setAdminUnlocked(true); }, onBack: () => setScreen("feed"), t: t })) : screen === "profile" ? (React.createElement(Profile, { me: me, t: t })) : screen === "memberProfile" ? (React.createElement(Profile, { me: members[viewingMemberId] || {}, t: t, onBack: () => setScreen("feed"), readOnly: true })) : (React.createElement("div", { style: styles.body },
+            React.createElement("main", { style: styles.main },
+                activeSpace !== "all" && (React.createElement("div", { style: styles.composeCard },
+                    activeSpace === "requests" && (React.createElement("div", { style: styles.typeToggle },
+                        React.createElement("button", { onClick: () => setComposeType("asked"), style: { ...styles.typeBtn, ...(composeType === "asked" ? styles.typeBtnActive : {}) } }, t.needHelp),
+                        React.createElement("button", { onClick: () => setComposeType("offered"), style: { ...styles.typeBtn, ...(composeType === "offered" ? styles.typeBtnActive : {}) } }, t.canHelp),
+                        React.createElement("button", { onClick: () => setComposeType("job"), style: { ...styles.typeBtn, ...(composeType === "job" ? styles.typeBtnActive : {}) } }, t.jobHunting))),
+                    React.createElement("textarea", { value: composeText, onChange: (e) => setComposeText(e.target.value), placeholder: t.spaceHint[activeSpace], style: styles.textarea, rows: 3 }),
+                    React.createElement("div", { style: styles.composeFooter },
+                        React.createElement("button", { style: styles.postBtn, onClick: submitPost, disabled: !composeText.trim() }, t.post)))),
+                React.createElement("div", { style: styles.feed },
+                    posts.filter((p) => activeSpace === "all" || p.space_id === activeSpace).length === 0 && (React.createElement("div", { style: styles.empty }, t.empty)),
+                    posts.filter((p) => activeSpace === "all" || p.space_id === activeSpace).map((p) => {
+                        const alreadyMarked = (p.helpful_by || []).includes(me.id);
+                        const isOwn = p.author_id === me.id;
+                        return (React.createElement("div", { key: p.id, style: styles.postCard },
+                            React.createElement("div", { style: styles.postHeader },
+                                React.createElement("button", { style: styles.postAuthorBtn, onClick: () => { setViewingMemberId(p.author_id); setScreen("memberProfile"); } }, p.display_name),
+                                activeSpace === "all" && React.createElement("span", { style: styles.badgeSpace }, t.spaceLabel[p.space_id]),
+                                p.type === "asked" && React.createElement("span", { style: styles.badgeAsk }, t.needsHelpBadge),
+                                p.type === "offered" && React.createElement("span", { style: styles.badgeOffer }, t.offeringHelpBadge),
+                                p.type === "job" && React.createElement("span", { style: styles.badgeJob }, t.jobHuntingBadge)),
+                            React.createElement("div", { style: styles.postText }, p.text),
+                            React.createElement("div", { style: styles.postFooter },
+                                React.createElement("button", { style: { ...styles.helpfulBtn, ...(alreadyMarked ? styles.helpfulBtnActive : {}) }, onClick: () => markHelpful(p), disabled: isOwn || alreadyMarked },
+                                    alreadyMarked ? t.markedHelpful : t.markHelpful,
+                                    (p.helpful_by || []).length > 0 ? " · " + p.helpful_by.length : ""))));
+                    })))))));
+}
+function LangSelect({ onChoose }) {
+    return (React.createElement("div", { style: styles.onboardWrap },
+        React.createElement("div", { style: styles.onboardHero },
+            React.createElement(RootLines, { className: "hero-roots" }),
+            React.createElement("h1", { style: styles.onboardTitle }, "Meadow")),
+        React.createElement("div", { style: styles.onboardCard },
+            React.createElement("button", { style: styles.langBtn, onClick: () => onChoose("en") }, "English"),
+            React.createElement("button", { style: { ...styles.langBtn, fontFamily: "'Vazirmatn', sans-serif" }, onClick: () => onChoose("fa") }, "فارسی"))));
+}
+function StepShell({ title, sub, children, dir, fontFamily }) {
+    return (React.createElement("div", { style: { ...styles.onboardWrap, fontFamily }, dir: dir },
+        React.createElement("div", { style: styles.onboardHero },
+            React.createElement("h1", { style: styles.onboardTitle }, title),
+            sub && React.createElement("p", { style: styles.onboardSub }, sub)),
+        React.createElement("div", { style: styles.onboardCard }, children)));
+}
+function Recover({ t, dir, fontFamily, onRestore, onBack }) {
+    const [query, setQuery] = useState("");
+    const [password, setPassword] = useState("");
+    const [notFound, setNotFound] = useState(false);
+    const [checking, setChecking] = useState(false);
+    const search = async () => {
+        setChecking(true);
+        const ok = await onRestore(query, password);
+        setChecking(false);
+        if (!ok)
+            setNotFound(true);
+    };
+    return (React.createElement(StepShell, { title: t.findAccount, sub: t.findAccountSub, dir: dir, fontFamily: fontFamily },
+        React.createElement("div", { style: styles.inputGroup },
+            React.createElement("label", { style: styles.inputLabel }, t.nameOrPseudonym),
+            React.createElement("input", { style: styles.input, value: query, onChange: (e) => { setQuery(e.target.value); setNotFound(false); } })),
+        React.createElement("div", { style: styles.inputGroup },
+            React.createElement("label", { style: styles.inputLabel }, t.password),
+            React.createElement("input", { type: "password", style: styles.input, value: password, onChange: (e) => { setPassword(e.target.value); setNotFound(false); } })),
+        notFound && React.createElement("div", { style: styles.notFoundText }, t.notFound),
+        React.createElement("button", { style: styles.submitBtn, onClick: search, disabled: !query.trim() || !password.trim() || checking }, checking ? "..." : t.restore),
+        React.createElement("button", { style: styles.skipBtn, onClick: onBack }, t.back)));
+}
+function Onboarding({ onDone, saving, t, dir, fontFamily, onRecover }) {
+    const [step, setStep] = useState("signup");
+    const [name, setName] = useState("");
+    const [pseudonym, setPseudonym] = useState("");
+    const [protectedMode, setProtectedMode] = useState(false);
+    const [password, setPassword] = useState("");
+    const [city, setCity] = useState("");
+    const [status, setStatus] = useState(null);
+    const [workStatus, setWorkStatus] = useState(null);
+    const [studyStatus, setStudyStatus] = useState(null);
+    const [company, setCompany] = useState("");
+    const [university, setUniversity] = useState("");
+    const [lifeNote, setLifeNote] = useState("");
+    const canSubmitSignup = (protectedMode ? pseudonym.trim() : name.trim()) && password.trim().length >= 4;
+    const steps = ["signup", "city", "status", "background", "final"];
+    const next = () => setStep(steps[steps.indexOf(step) + 1]);
+    const finish = () => onDone({
+        name: name.trim() || pseudonym.trim(), pseudonym: pseudonym.trim(), protected: protectedMode,
+        password: password.trim(), city: city.trim(), status, workStatus, studyStatus,
+        company: company.trim(), university: university.trim(), lifeNote: lifeNote.trim(),
+    });
+    if (step === "signup") {
+        return (React.createElement(StepShell, { title: t.brand, sub: t.tagline, dir: dir, fontFamily: fontFamily },
+            React.createElement("div", { style: styles.protectedRow },
+                React.createElement("div", { style: styles.protectedLabel }, t.protectedMode),
+                React.createElement("button", { onClick: () => setProtectedMode(!protectedMode), style: { ...styles.toggle, ...(protectedMode ? styles.toggleOn : {}) } },
+                    React.createElement("div", { style: { ...styles.toggleDot, ...(protectedMode ? styles.toggleDotOn : {}) } }))),
+            protectedMode ? (React.createElement("div", { style: styles.inputGroup },
+                React.createElement("label", { style: styles.inputLabel }, t.pseudonym),
+                React.createElement("input", { style: styles.input, value: pseudonym, onChange: (e) => setPseudonym(e.target.value) }))) : (React.createElement("div", { style: styles.inputGroup },
+                React.createElement("label", { style: styles.inputLabel }, t.name),
+                React.createElement("input", { style: styles.input, value: name, onChange: (e) => setName(e.target.value) }))),
+            React.createElement("div", { style: styles.inputGroup },
+                React.createElement("label", { style: styles.inputLabel }, t.password),
+                React.createElement("input", { type: "password", style: styles.input, value: password, onChange: (e) => setPassword(e.target.value) }),
+                React.createElement("span", { style: styles.passwordHint }, t.passwordHint)),
+            React.createElement("button", { style: { ...styles.submitBtn, opacity: canSubmitSignup ? 1 : 0.5 }, disabled: !canSubmitSignup, onClick: next }, t.continue),
+            React.createElement("button", { style: styles.skipBtn, onClick: onRecover }, t.haveAccount)));
+    }
+    if (step === "city") {
+        return (React.createElement(StepShell, { title: t.cityTitle, sub: t.citySub, dir: dir, fontFamily: fontFamily },
+            React.createElement("div", { style: styles.inputGroup },
+                React.createElement("label", { style: styles.inputLabel }, t.city),
+                React.createElement("input", { style: styles.input, value: city, onChange: (e) => setCity(e.target.value), autoFocus: true })),
+            React.createElement("button", { style: styles.submitBtn, onClick: next }, t.continue),
+            React.createElement("button", { style: styles.skipBtn, onClick: next }, t.skip)));
+    }
+    if (step === "status") {
+        return (React.createElement(StepShell, { title: t.situationTitle, dir: dir, fontFamily: fontFamily },
+            React.createElement("div", { style: styles.choiceCol }, [{ id: "working", label: t.working }, { id: "studying", label: t.studying }, { id: "transition", label: t.transition }].map((o) => (React.createElement("button", { key: o.id, onClick: () => setStatus(o.id), style: { ...styles.choiceBtn, ...(status === o.id ? styles.choiceBtnActive : {}) } }, o.label)))),
+            status === "working" && (React.createElement("div", { style: styles.choiceRow }, [{ id: "employed", label: t.employed }, { id: "open", label: t.openToWork }].map((o) => (React.createElement("button", { key: o.id, onClick: () => setWorkStatus(o.id), style: { ...styles.choiceBtnSmall, ...(workStatus === o.id ? styles.choiceBtnActive : {}) } }, o.label))))),
+            status === "studying" && (React.createElement("div", { style: styles.choiceRow }, [{ id: "enrolled", label: t.enrolled }, { id: "seeking", label: t.seeking }].map((o) => (React.createElement("button", { key: o.id, onClick: () => setStudyStatus(o.id), style: { ...styles.choiceBtnSmall, ...(studyStatus === o.id ? styles.choiceBtnActive : {}) } }, o.label))))),
+            React.createElement("button", { style: { ...styles.submitBtn, opacity: status ? 1 : 0.5 }, disabled: !status, onClick: next }, t.continue),
+            React.createElement("button", { style: styles.skipBtn, onClick: next }, t.skip)));
+    }
+    if (step === "background") {
+        return (React.createElement(StepShell, { title: t.backgroundTitle, sub: t.backgroundSub, dir: dir, fontFamily: fontFamily },
+            status !== "studying" && (React.createElement("div", { style: styles.inputGroup },
+                React.createElement("label", { style: styles.inputLabel }, t.company),
+                React.createElement("input", { style: styles.input, value: company, onChange: (e) => setCompany(e.target.value) }))),
+            React.createElement("div", { style: styles.inputGroup },
+                React.createElement("label", { style: styles.inputLabel }, t.university),
+                React.createElement("input", { style: styles.input, list: "university-options", value: university, onChange: (e) => setUniversity(e.target.value) }),
+                React.createElement("datalist", { id: "university-options" }, COMMON_UNIVERSITIES.map((u) => React.createElement("option", { key: u, value: u })))),
+            React.createElement("button", { style: styles.submitBtn, onClick: next }, t.continue),
+            React.createElement("button", { style: styles.skipBtn, onClick: next }, t.skip)));
+    }
+    return (React.createElement(StepShell, { title: t.oneMoreThing, sub: t.oneMoreSub, dir: dir, fontFamily: fontFamily },
+        React.createElement("div", { style: styles.inputGroup },
+            React.createElement("textarea", { style: { ...styles.input, ...styles.textareaSmall }, rows: 2, value: lifeNote, onChange: (e) => setLifeNote(e.target.value) })),
+        React.createElement("button", { style: styles.submitBtn, disabled: saving, onClick: finish }, saving ? "..." : t.enterMeadow),
+        React.createElement("button", { style: styles.skipBtn, disabled: saving, onClick: finish }, t.skipAndEnter)));
+}
+function Profile({ me, t, onBack, readOnly }) {
+    const displayName = me.protected ? me.pseudonym : me.name;
+    return (React.createElement("div", { style: styles.profileWrap },
+        onBack && React.createElement("button", { style: styles.backBtn, onClick: onBack },
+            "← ",
+            t.back),
+        React.createElement("div", { style: styles.profileHero },
+            React.createElement("div", { style: styles.profileAvatarBig }, (displayName || "?").charAt(0).toUpperCase()),
+            React.createElement("div", { style: styles.profileName }, displayName),
+            me.protected && React.createElement("div", { style: styles.protectedTag }, t.protectedIsOn)),
+        React.createElement("div", { style: styles.statsRow },
+            React.createElement("div", { style: styles.statBox },
+                React.createElement("div", { style: styles.statNum }, me.helped || 0),
+                React.createElement("div", { style: styles.statLabel }, t.helped)),
+            React.createElement("div", { style: styles.statBox },
+                React.createElement("div", { style: { ...styles.statNum, color: "#B8974D" } }, me.asked || 0),
+                React.createElement("div", { style: styles.statLabel }, t.askedForHelp))),
+        !readOnly && React.createElement("div", { style: styles.statNote }, t.helpNote),
+        me.life_note && React.createElement("div", { style: styles.lifeNote },
+            """,
+            me.life_note,
+            """),
+        React.createElement("div", { style: styles.profileCard },
+            React.createElement("div", { style: styles.profileMeta },
+                me.city && React.createElement("div", { style: styles.metaRow },
+                    React.createElement("span", { style: styles.metaLabel }, t.city),
+                    React.createElement("span", null, me.city)),
+                statusLabel(me, t) && React.createElement("div", { style: styles.metaRow },
+                    React.createElement("span", { style: styles.metaLabel }, "·"),
+                    React.createElement("span", null, statusLabel(me, t))),
+                me.company && React.createElement("div", { style: styles.metaRow },
+                    React.createElement("span", { style: styles.metaLabel }, t.company),
+                    React.createElement("span", null, me.company)),
+                me.university && React.createElement("div", { style: styles.metaRow },
+                    React.createElement("span", { style: styles.metaLabel }, t.university),
+                    React.createElement("span", null, me.university))))));
+}
+function Admin({ members, posts, unlocked, passwordInput, setPasswordInput, onUnlock, onBack, t }) {
+    if (!unlocked) {
+        return (React.createElement("div", { style: styles.profileWrap },
+            React.createElement("button", { style: styles.backBtn, onClick: onBack },
+                "← ",
+                t.back),
+            React.createElement("div", { style: styles.profileCard },
+                React.createElement("div", { style: styles.profileName }, t.adminAccess),
+                React.createElement("input", { style: { ...styles.input, marginTop: 12 }, type: "password", placeholder: t.password, value: passwordInput, onChange: (e) => setPasswordInput(e.target.value), onKeyDown: (e) => e.key === "Enter" && onUnlock() }),
+                React.createElement("button", { style: { ...styles.submitBtn, marginTop: 12 }, onClick: onUnlock }, t.unlock))));
+    }
+    const memberList = Object.values(members);
+    const sortedPosts = [...posts].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return (React.createElement("div", { style: styles.profileWrap },
+        React.createElement("button", { style: styles.backBtn, onClick: onBack },
+            "← ",
+            t.back),
+        React.createElement("div", { style: styles.profileCard },
+            React.createElement("div", { style: styles.profileName }, t.overview),
+            React.createElement("div", { style: styles.adminStatsRow },
+                React.createElement("div", { style: styles.statBox },
+                    React.createElement("div", { style: styles.statNum }, memberList.length),
+                    React.createElement("div", { style: styles.statLabel }, t.members)),
+                React.createElement("div", { style: styles.statBox },
+                    React.createElement("div", { style: { ...styles.statNum, color: "#B8974D" } }, posts.length),
+                    React.createElement("div", { style: styles.statLabel }, t.posts)))),
+        React.createElement("div", { style: { ...styles.profileCard, marginTop: 14 } },
+            React.createElement("div", { style: styles.profileName }, t.membersHeading),
+            React.createElement("div", { style: styles.adminList },
+                memberList.length === 0 && React.createElement("div", { style: styles.empty }, t.noMembers),
+                memberList.map((m) => (React.createElement("div", { key: m.id, style: styles.adminRow },
+                    React.createElement("div", { style: styles.adminRowTitle }, m.protected ? m.pseudonym + " (protected)" : m.name),
+                    React.createElement("div", { style: styles.adminRowMeta }, [m.city, statusLabel(m, t), m.university, m.company].filter(Boolean).join(" · ") || t.noBackground),
+                    React.createElement("div", { style: styles.adminRowMeta },
+                        t.helped,
+                        ": ",
+                        m.helped || 0,
+                        " · ",
+                        t.askedForHelp,
+                        ": ",
+                        m.asked || 0),
+                    m.life_note && React.createElement("div", { style: styles.adminRowNote },
+                        """,
+                        m.life_note,
+                        """)))))),
+        React.createElement("div", { style: { ...styles.profileCard, marginTop: 14 } },
+            React.createElement("div", { style: styles.profileName }, t.allPosts),
+            React.createElement("div", { style: styles.adminList },
+                sortedPosts.length === 0 && React.createElement("div", { style: styles.empty }, t.noPosts),
+                sortedPosts.map((p) => (React.createElement("div", { key: p.id, style: styles.adminRow },
+                    React.createElement("div", { style: styles.adminRowTitle },
+                        p.display_name,
+                        " · ",
+                        t.spaceLabel[p.space_id],
+                        p.type === "asked" && " · " + t.needsHelpBadge,
+                        p.type === "offered" && " · " + t.offeringHelpBadge,
+                        p.type === "job" && " · " + t.jobHuntingBadge),
+                    React.createElement("div", { style: styles.adminRowMeta }, new Date(p.created_at).toLocaleString()),
+                    React.createElement("div", { style: styles.adminRowNote }, p.text))))))));
+}
+const styles = {
+    loadingScreen: { height: "100vh", background: "#0A0A0A", display: "flex", alignItems: "center", justifyContent: "center" },
+    loadingDot: { width: 10, height: 10, borderRadius: "50%", background: "#B8974D" },
+    app: { minHeight: "100vh", background: "#0A0A0A", color: "#ECEAE4" },
+    header: { borderBottom: "1px solid #262626", position: "sticky", top: 0, background: "#0A0A0A", zIndex: 10 },
+    headerInner: { maxWidth: 640, margin: "0 auto", padding: "14px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "center" },
+    brand: { display: "flex", alignItems: "center", gap: 8 },
+    brandText: { fontWeight: 800, fontSize: 18, letterSpacing: 0.5 },
+    headerRight: { display: "flex", alignItems: "center", gap: 10 },
+    adminLink: { background: "none", border: "none", color: "#3A3A3A", fontSize: 11, cursor: "pointer" },
+    avatarBtn: { width: 30, height: 30, borderRadius: "50%", background: "#262626", color: "#ECEAE4", border: "1px solid #333", fontSize: 13, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+    body: { maxWidth: 640, margin: "0 auto", padding: "0 16px" },
+    nav: { display: "flex", gap: 6, padding: "14px 16px 12px", maxWidth: 640, margin: "0 auto" },
+    navItem: { flex: 1, background: "transparent", border: "1px solid #262626", color: "#9A968E", borderRadius: 6, padding: "10px 8px", fontSize: 12, cursor: "pointer", textAlign: "center", lineHeight: 1.3, fontFamily: "inherit" },
+    navItemActive: { background: "#B8974D", borderColor: "#B8974D", color: "#0D0D0D", fontWeight: 700 },
+    main: { paddingTop: 16, paddingBottom: 40 },
+    composeCard: { background: "#171717", borderRadius: 5, padding: 14, marginBottom: 20 },
+    typeToggle: { display: "flex", gap: 6, marginBottom: 10 },
+    typeBtn: { flex: 1, background: "transparent", border: "1px solid #B8974D", color: "#9A968E", borderRadius: 4, padding: "8px 2px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" },
+    typeBtnActive: { background: "#B8974D", color: "#0D0D0D", fontWeight: 700 },
+    textarea: { width: "100%", background: "#0D0D0D", border: "1px solid #2E2E2E", borderRadius: 4, color: "#ECEAE4", padding: 10, fontSize: 14, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" },
+    composeFooter: { display: "flex", justifyContent: "flex-end", marginTop: 8 },
+    postBtn: { background: "#B8974D", color: "#0D0D0D", border: "none", borderRadius: 4, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
+    feed: { display: "flex", flexDirection: "column", gap: 10 },
+    empty: { color: "#9A968E", textAlign: "center", padding: "30px 0", fontSize: 13 },
+    postCard: { background: "#171717", border: "1px solid #262626", borderRadius: 5, padding: 14 },
+    postHeader: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" },
+    postAuthorBtn: { fontWeight: 700, fontSize: 13, color: "#B8974D", background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: "2px" },
+    badgeSpace: { fontSize: 11, background: "#0D0D0D", color: "#8A8680", padding: "2px 8px", borderRadius: 4, border: "1px solid #262626" },
+    badgeAsk: { fontSize: 11, background: "rgba(184,151,77,0.18)", color: "#B8974D", padding: "2px 8px", borderRadius: 4 },
+    badgeOffer: { fontSize: 11, background: "rgba(154,150,142,0.15)", color: "#9A968E", padding: "2px 8px", borderRadius: 4 },
+    badgeJob: { fontSize: 11, background: "rgba(184,151,77,0.10)", color: "#B8974D", padding: "2px 8px", borderRadius: 4, border: "1px solid rgba(184,151,77,0.4)" },
+    postText: { fontSize: 14, lineHeight: 1.7 },
+    postFooter: { marginTop: 10, paddingTop: 10, borderTop: "1px solid #262626" },
+    helpfulBtn: { background: "none", border: "1px solid #2E2E2E", color: "#9A968E", borderRadius: 4, padding: "5px 12px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" },
+    helpfulBtnActive: { borderColor: "#B8974D", color: "#B8974D" },
+    onboardWrap: { minHeight: "100vh", background: "#0A0A0A", color: "#ECEAE4", display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 20px" },
+    onboardHero: { textAlign: "center", maxWidth: 360, marginBottom: 24 },
+    onboardTitle: { fontSize: 32, fontWeight: 800, margin: "0 0 8px" },
+    onboardSub: { fontSize: 14, color: "#9A968E", lineHeight: 1.8, margin: 0 },
+    onboardCard: { width: "100%", maxWidth: 360, background: "#171717", border: "1px solid #262626", borderRadius: 6, padding: 20, display: "flex", flexDirection: "column", gap: 12 },
+    langBtn: { background: "#0D0D0D", border: "1px solid #262626", color: "#ECEAE4", borderRadius: 4, padding: "16px 0", fontSize: 16, fontWeight: 700, cursor: "pointer" },
+    notFoundText: { color: "#9A968E", fontSize: 12, textAlign: "center" },
+    passwordHint: { fontSize: 10, color: "#8A8680", lineHeight: 1.5 },
+    protectedRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, background: "#0D0D0D", borderRadius: 4, padding: 12 },
+    protectedLabel: { fontSize: 13, fontWeight: 700 },
+    toggle: { width: 42, height: 24, borderRadius: 5, background: "#262626", border: "none", position: "relative", cursor: "pointer", flexShrink: 0 },
+    toggleOn: { background: "#B8974D" },
+    toggleDot: { width: 18, height: 18, borderRadius: "50%", background: "#ECEAE4", position: "absolute", top: 3, right: 3, transition: "transform 0.15s" },
+    toggleDotOn: { transform: "translateX(-18px)" },
+    inputGroup: { display: "flex", flexDirection: "column", gap: 5 },
+    inputLabel: { fontSize: 11, fontWeight: 600, color: "#8A8680", textTransform: "uppercase", letterSpacing: 0.6 },
+    input: { background: "#0A0A0A", border: "1px solid #262626", borderRadius: 4, color: "#ECEAE4", padding: "12px 13px", fontSize: 15, boxSizing: "border-box", width: "100%", outline: "none", fontFamily: "inherit" },
+    textareaSmall: { resize: "vertical" },
+    submitBtn: { background: "#B8974D", color: "#0D0D0D", border: "none", borderRadius: 4, padding: "13px 0", fontWeight: 800, fontSize: 14, cursor: "pointer", marginTop: 4, fontFamily: "inherit" },
+    skipBtn: { background: "none", border: "none", color: "#B8974D", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "10px 0", textDecoration: "underline", textUnderlineOffset: "3px", width: "100%", textAlign: "center", fontFamily: "inherit" },
+    choiceCol: { display: "flex", flexDirection: "column", gap: 8 },
+    choiceRow: { display: "flex", gap: 8, marginTop: -4 },
+    choiceBtn: { background: "#0A0A0A", border: "1px solid #262626", color: "#ECEAE4", borderRadius: 4, padding: "13px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left", fontFamily: "inherit" },
+    choiceBtnSmall: { flex: 1, background: "#0A0A0A", border: "1px solid #262626", color: "#9A968E", borderRadius: 4, padding: "10px 8px", fontSize: 12, cursor: "pointer", fontFamily: "inherit" },
+    choiceBtnActive: { borderColor: "#B8974D", background: "rgba(184,151,77,0.12)", color: "#ECEAE4" },
+    profileWrap: { maxWidth: 640, margin: "0 auto", padding: "20px 16px 60px" },
+    backBtn: { background: "none", border: "none", color: "#9A968E", fontSize: 13, cursor: "pointer", padding: "8px 0" },
+    profileHero: { textAlign: "center", marginBottom: 20 },
+    profileAvatarBig: { width: 64, height: 64, borderRadius: "50%", background: "#262626", color: "#B8974D", fontSize: 26, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" },
+    profileCard: { background: "#171717", border: "1px solid #262626", borderRadius: 6, padding: 20 },
+    profileName: { fontSize: 20, fontWeight: 800, marginBottom: 4 },
+    protectedTag: { display: "inline-block", fontSize: 11, color: "#B8974D", background: "rgba(184,151,77,0.18)", padding: "3px 10px", borderRadius: 4, marginTop: 6 },
+    profileMeta: { fontSize: 13, color: "#ECEAE4", display: "flex", flexDirection: "column", gap: 8 },
+    metaRow: { display: "flex", gap: 8 },
+    metaLabel: { color: "#8A8680", minWidth: 70, textTransform: "uppercase", fontSize: 10, letterSpacing: 0.5, paddingTop: 2 },
+    lifeNote: { fontSize: 14, color: "#ECEAE4", fontStyle: "italic", margin: "0 0 16px", lineHeight: 1.8, textAlign: "center", padding: "0 10px" },
+    statsRow: { display: "flex", gap: 12, marginBottom: 6 },
+    statBox: { flex: 1, background: "#171717", border: "1px solid #262626", borderRadius: 5, padding: "16px 0", textAlign: "center" },
+    statNum: { fontSize: 28, fontWeight: 800, color: "#ECEAE4" },
+    statLabel: { fontSize: 11, color: "#9A968E", marginTop: 4, textTransform: "uppercase", letterSpacing: 0.5 },
+    statNote: { fontSize: 11, color: "#9A968E", textAlign: "center", marginBottom: 20 },
+    adminStatsRow: { display: "flex", gap: 12, marginTop: 12 },
+    adminList: { display: "flex", flexDirection: "column", gap: 10, marginTop: 12 },
+    adminRow: { background: "#0D0D0D", borderRadius: 4, padding: 12 },
+    adminRowTitle: { fontSize: 13, fontWeight: 700, color: "#B8974D" },
+    adminRowMeta: { fontSize: 11, color: "#9A968E", marginTop: 3 },
+    adminRowNote: { fontSize: 12, color: "#ECEAE4", marginTop: 6, lineHeight: 1.6 },
+};
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App, null));
+
+</script>
+</body>
+</html>
