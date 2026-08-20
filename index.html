@@ -24,7 +24,7 @@ const { useState, useEffect, useRef } = React;
 const SUPABASE_URL = "https://sphbpgzahvnsruclmocf.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable__bDUDYcUQJNSOT7sMa3xew_aEeFqEJz";
 // =====================================================================
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const SPACE_IDS = ["all", "career", "life", "requests"];
 const COMMON_UNIVERSITIES = [
     "University of Tehran", "Sharif University of Technology", "Amirkabir University of Technology",
@@ -146,7 +146,7 @@ function App() {
     const bootstrapped = useRef(false);
     const ADMIN_PASSWORD = "meadow-admin";
     async function loadData() {
-        const { data: memberRows, error: mErr } = await supabase.from("members").select("*");
+        const { data: memberRows, error: mErr } = await supabaseClient.from("members").select("*");
         if (mErr) {
             setConnError(true);
             return;
@@ -154,7 +154,7 @@ function App() {
         const memberMap = {};
         (memberRows || []).forEach((m) => (memberMap[m.id] = m));
         setMembers(memberMap);
-        const { data: postRows, error: pErr } = await supabase.from("posts").select("*").order("created_at", { ascending: false });
+        const { data: postRows, error: pErr } = await supabaseClient.from("posts").select("*").order("created_at", { ascending: false });
         if (pErr) {
             setConnError(true);
             return;
@@ -171,7 +171,7 @@ function App() {
                 const savedId = localStorage.getItem("meadow-my-id");
                 if (lang) {
                     if (savedId) {
-                        const { data } = await supabase.from("members").select("*").eq("id", savedId).single();
+                        const { data } = await supabaseClient.from("members").select("*").eq("id", savedId).single();
                         if (data) {
                             setMe(data);
                             setScreen("feed");
@@ -200,7 +200,7 @@ function App() {
     }
     async function completeOnboarding(profile) {
         setSaving(true);
-        const { data, error } = await supabase.from("members").insert([{
+        const { data, error } = await supabaseClient.from("members").insert([{
                 name: profile.name, pseudonym: profile.pseudonym, protected: profile.protected,
                 password: profile.password, city: profile.city, status: profile.status,
                 work_status: profile.workStatus, study_status: profile.studyStatus,
@@ -218,7 +218,7 @@ function App() {
     }
     async function restoreAccount(q, password) {
         const ql = q.trim().toLowerCase();
-        const { data } = await supabase.from("members").select("*");
+        const { data } = await supabaseClient.from("members").select("*");
         const match = (data || []).find((m) => ((m.name || "").toLowerCase() === ql || (m.pseudonym || "").toLowerCase() === ql) && m.password === password.trim());
         if (match) {
             setMe(match);
@@ -237,13 +237,13 @@ function App() {
             text: composeText.trim(), type: activeSpace === "requests" ? composeType : "post",
             helpful_by: [],
         };
-        const { data, error } = await supabase.from("posts").insert([newPost]).select().single();
+        const { data, error } = await supabaseClient.from("posts").insert([newPost]).select().single();
         if (!error && data)
             setPosts((prev) => [data, ...prev]);
         if (activeSpace === "requests" && (composeType === "asked" || composeType === "offered")) {
             const field = composeType === "asked" ? "asked" : "helped";
             const newVal = (me[field] || 0) + 1;
-            const { data: updated } = await supabase.from("members").update({ [field]: newVal }).eq("id", me.id).select().single();
+            const { data: updated } = await supabaseClient.from("members").update({ [field]: newVal }).eq("id", me.id).select().single();
             if (updated) {
                 setMe(updated);
                 setMembers((prev) => ({ ...prev, [me.id]: updated }));
@@ -255,12 +255,12 @@ function App() {
         if (!me || post.author_id === me.id || (post.helpful_by || []).includes(me.id))
             return;
         const nextHelpfulBy = [...(post.helpful_by || []), me.id];
-        const { data: updatedPost } = await supabase.from("posts").update({ helpful_by: nextHelpfulBy }).eq("id", post.id).select().single();
+        const { data: updatedPost } = await supabaseClient.from("posts").update({ helpful_by: nextHelpfulBy }).eq("id", post.id).select().single();
         if (updatedPost)
             setPosts((prev) => prev.map((p) => (p.id === post.id ? updatedPost : p)));
         const author = members[post.author_id];
         if (author) {
-            const { data: updatedAuthor } = await supabase.from("members").update({ helped: (author.helped || 0) + 1 }).eq("id", post.author_id).select().single();
+            const { data: updatedAuthor } = await supabaseClient.from("members").update({ helped: (author.helped || 0) + 1 }).eq("id", post.author_id).select().single();
             if (updatedAuthor)
                 setMembers((prev) => ({ ...prev, [post.author_id]: updatedAuthor }));
         }
