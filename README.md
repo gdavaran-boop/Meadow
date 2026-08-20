@@ -14,4 +14,4 @@ Meadow is a single-file React + Supabase web app — a private community feed fo
 
 ## Notes
 
-This is a prototype: member passwords are stored in plain text in the `members` table, and the admin password is hardcoded in the client-side source. Do not reuse real passwords, and treat this as unsuitable for production use without hardening auth first.
+This is a prototype: member passwords are stored in plain text in the `members` table. Do not reuse real passwords, and treat this as unsuitable for production use without hardening auth first.
